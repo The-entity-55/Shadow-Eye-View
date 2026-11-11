@@ -69,6 +69,8 @@ export default function LayerPanels() {
 
   const layers = useLayerStore((s) => s.layers);
   const toggleLayer = useLayerStore((s) => s.toggleLayer);
+  const trafficLines = useLayerStore((s) => s.trafficLines);
+  const setTrafficLines = useLayerStore((s) => s.setTrafficLines);
   const cctvCoverageMode = useLayerStore((s) => s.cctvCoverageMode);
   const setCctvCoverageMode = useLayerStore((s) => s.setCctvCoverageMode);
   const satelliteClasses = useLayerStore((s) => s.satelliteClasses);
@@ -235,18 +237,33 @@ export default function LayerPanels() {
                                 JAM
                               </span>
                             </div>
-                            {layer.sourceLabel.includes('Zoom') && (
+                            <div className="flex items-center gap-1">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const { lat, lon } = useHudStore.getState();
-                                  getGlobeEngine()?.flyTo(lat, lon, 2_400, 0, -45);
-                                }}
-                                className="rounded border border-[#00d4ff]/45 bg-[#00d4ff]/15 px-1.5 py-0.5 text-[8px] text-[#00d4ff] hover:bg-[#00d4ff]/25"
+                                aria-pressed={trafficLines}
+                                onClick={() => setTrafficLines(!trafficLines)}
+                                title="Toggle draped road flow lines (uses more GPU)"
+                                className={`rounded border px-1.5 py-0.5 text-[8px] transition ${
+                                  trafficLines
+                                    ? 'border-[#00d4ff]/50 bg-[#00d4ff]/20 text-[#00d4ff]'
+                                    : 'border-white/15 bg-white/5 text-white/55 hover:text-white'
+                                }`}
                               >
-                                ZOOM STREET
+                                LINES
                               </button>
-                            )}
+                              {layer.sourceLabel.includes('Zoom') && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const { lat, lon } = useHudStore.getState();
+                                    getGlobeEngine()?.flyTo(lat, lon, 2_400, 0, -45);
+                                  }}
+                                  className="rounded border border-[#00d4ff]/45 bg-[#00d4ff]/15 px-1.5 py-0.5 text-[8px] text-[#00d4ff] hover:bg-[#00d4ff]/25"
+                                >
+                                  ZOOM STREET
+                                </button>
+                              )}
+                            </div>
                           </div>
                         )}
 

@@ -88,12 +88,14 @@ const INITIAL_LAYERS: Record<LayerId, LayerState> = {
 
 interface LayerStoreState {
   layers: Record<LayerId, LayerState>;
+  trafficLines: boolean;
   cctvCoverageMode: CctvCoverageMode;
   satelliteClasses: Record<SatelliteClassKey, boolean>;
   toggleLayer: (id: LayerId) => void;
   setLayerEnabled: (id: LayerId, enabled: boolean) => void;
   setLayersEnabled: (updates: Partial<Record<LayerId, boolean>>) => void;
   updateLayerState: (id: LayerId, patch: Partial<LayerState>) => void;
+  setTrafficLines: (enabled: boolean) => void;
   setCctvCoverageMode: (mode: CctvCoverageMode) => void;
   cycleCctvCoverageMode: () => void;
   toggleSatelliteClass: (key: SatelliteClassKey) => void;
@@ -101,6 +103,7 @@ interface LayerStoreState {
 
 export const useLayerStore = create<LayerStoreState>((set) => ({
   layers: INITIAL_LAYERS,
+  trafficLines: false,
   cctvCoverageMode: 'on',
   satelliteClasses: {
     stations: true,
@@ -142,6 +145,7 @@ export const useLayerStore = create<LayerStoreState>((set) => ({
         [id]: { ...s.layers[id], ...patch },
       },
     })),
+  setTrafficLines: (trafficLines) => set({ trafficLines }),
   setCctvCoverageMode: (cctvCoverageMode) => set({ cctvCoverageMode }),
   cycleCctvCoverageMode: () =>
     set((s) => ({

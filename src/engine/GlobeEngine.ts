@@ -384,10 +384,12 @@ export class GlobeEngine {
       updateStats('cctv', patch),
     );
 
-    const initialLayers = useLayerStore.getState().layers;
+    const layerStoreState = useLayerStore.getState();
+    const initialLayers = layerStoreState.layers;
     this.flightsLayer.setEnabled('flights', initialLayers.flights.enabled);
     this.flightsLayer.setEnabled('military', initialLayers.military.enabled);
     this.vesselsLayer.setEnabled(initialLayers.vessels.enabled);
+    this.trafficLayer.setLinesEnabled(layerStoreState.trafficLines);
     this.trafficLayer.setEnabled(initialLayers.traffic.enabled);
     this.satellitesLayer.setEnabled(initialLayers.satellites.enabled);
     this.earthquakesLayer.setEnabled(initialLayers.earthquakes.enabled);
@@ -866,6 +868,9 @@ export class GlobeEngine {
         }
         if (state.layers.traffic.enabled !== prev.layers.traffic.enabled) {
           this.trafficLayer.setEnabled(state.layers.traffic.enabled);
+        }
+        if (state.trafficLines !== prev.trafficLines) {
+          this.trafficLayer.setLinesEnabled(state.trafficLines);
         }
         if (state.layers.satellites.enabled !== prev.layers.satellites.enabled) {
           this.satellitesLayer.setEnabled(state.layers.satellites.enabled);

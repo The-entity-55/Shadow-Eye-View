@@ -237,3 +237,124 @@ export function clampBoundsAroundCenter(
     east: Math.min(180, centerLon + halfLon),
   };
 }
+
+/** Liang-Barsky viewport/tile bbox clipper ported from upstream src/sources/openFreeMap.js. */
+export function clipLineToBounds(
+  coords: Array<[number, number]>,
+  box: TileBBox,
+): Array<Array<[number, number]>> {
+  const lines: Array<Array<[number, number]>> = [];
+  let line: Array<[number, number]> = [];
+  for (let i = 1; i < coords.length; i++) {
+    const a = coords[i - 1];
+    const b = coords[i];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    let lo = 0;
+    let hi = 1;
+    const p = [-dx, dx, -dy, dy];
+    const q = [a[0] - box.west, box.east - a[0], a[1] - box.south, box.north - a[1]];
+    for (let k = 0; k < 4; k++) {
+      if (p[k] === 0) {
+        if (q[k] < 0) hi = -1;
+      } else if (p[k] < 0) {
+        lo = Math.max(lo, q[k] / p[k]);
+      } else {
+        hi = Math.min(hi, q[k] / p[k]);
+      }
+    }
+    if (lo > hi) {
+      if (line.length > 1) lines.push(line);
+      line = [];
+      continue;
+    }
+    const start: [number, number] = [a[0] + lo * dx, a[1] + lo * dy];
+    const end: [number, number] = [a[0] + hi * dx, a[1] + hi * dy];
+    const last = line[line.length - 1];
+    if (!last || Math.abs(last[0] - start[0]) + Math.abs(last[1] - start[1]) > 1e-10) {
+      if (line.length > 1) lines.push(line);
+      line = [start];
+    }
+    if (Math.abs(end[0] - start[0]) + Math.abs(end[1] - start[1]) > 1e-10) {
+      line.push(end);
+    }
+    if (hi < 1) {
+      if (line.length > 1) lines.push(line);
+      line = [];
+    }
+  }
+  if (line.length > 1) lines.push(line);
+  return lines;
+}
+
+/** Decimate densely vertices along bends while preserving endpoints and road extent. */
+export function simplifyRoadCoords(
+  coords: Array<[number, number]>,
+  minStepM = 18,
+  maxPoints = 48,
+): Array<[number, number]> {
+  if (coords.length <= 2) return coords;
+  const out: Array<[number, number]> = [coords[0]];
+  let last = coords[0];
+  for (let i = 1; i < coords.length - 1; i++) {
+    const pt = coords[i];
+    const metres =
+      Math.hypot((pt[0] - last[0]) * Math.cos(pt[1] * D2R), pt[1] - last[1]) * 111_320;
+    if (metres >= minStepM) {
+      out.push(pt);
+      last = pt;
+    }
+  }
+  out.push(coords[coords.length - 1]);
+  if (out.length <= maxPoints) return out;
+  const sampled: Array<[number, number]> = [];
+  const stride = (out.length - 1) / (maxPoints - 1);
+  for (let i = 0; i < maxPoints - 1; i++) {
+    sampled.push(out[Math.round(i * stride)]);
+  }
+  sampled.push(out[out.length - 1]);
+  return sampled;
+}
+
+/** Height stations spaced >= 150 m apart, matching upstream src/layers/traffic/surface.js. */
+export function roadHeightStations(
+  coords: Array<[number, number]>,
+  maxSpacingM = 150,
+): { indices: number[]; distances: number[] } {
+  const distances = [0];
+  const indices = [0];
+  let anchor = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const a = coords[i - 1];
+    const b = coords[i];
+    const metres =
+      Math.hypot((b[0] - a[0]) * Math.cos(a[1] * D2R), b[1] - a[1]) * 111_320;
+    distances.push(distances[i - 1] + metres);
+    if (distances[i] - distances[anchor] > maxSpacingM + 0.001 && i - 1 > anchor) {
+      anchor = i - 1;
+      indices.push(anchor);
+    }
+  }
+  if (indices[indices.length - 1] !== coords.length - 1) {
+    indices.push(coords.length - 1);
+  }
+  return { indices, distances };
+}
+
+/** Altitude-scaled vehicle dot cap matching upstream src/layers/traffic/policy.js. */
+export function roadDotBudget(altitudeM: number, maxDots = 1_000): number {
+  const safeAlt = Number.isFinite(altitudeM) ? Math.max(1_000, altitudeM) : 4_000;
+  return Math.max(250, Math.min(maxDots, Math.round(maxDots * Math.pow(1_000 / safeAlt, 1.5))));
+}
+
+/** Intersection-over-reference overlap test matching upstream src/layers/traffic/viewport.js. */
+export function boundsOverlap(a: TileBBox, b: TileBBox, threshold = 0.6): boolean {
+  const overlapS = Math.max(a.south, b.south);
+  const overlapN = Math.min(a.north, b.north);
+  const overlapW = Math.max(a.west, b.west);
+  const overlapE = Math.min(a.east, b.east);
+  if (overlapN <= overlapS || overlapE <= overlapW) return false;
+  const overlapArea = (overlapN - overlapS) * (overlapE - overlapW);
+  const aArea = (a.north - a.south) * (a.east - a.west);
+  return aArea > 0 && overlapArea / aArea >= threshold;
+}
